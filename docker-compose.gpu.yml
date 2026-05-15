@@ -1,0 +1,123 @@
+version: "3.9"
+# GPU-enabled compose file for SafeTrace evaluation on NVIDIA hardware.
+#
+# Prerequisites:
+#   - NVIDIA Container Toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+#   - nvidia-docker2 runtime
+#
+# Usage:
+#   MODEL=Qwen/Qwen2.5-Coder-7B-Instruct docker compose -f docker-compose.gpu.yml up
+#
+# To run evaluation after services are healthy:
+#   docker compose -f docker-compose.gpu.yml exec safetrace-eval \
+#     python scripts/run_eval.py --agent vllm --model $MODEL --vllm-url http://vllm:8000/v1
+#
+# For multi-GPU (e.g. 4× A100):
+#   TENSOR_PARALLEL=4 docker compose -f docker-compose.gpu.yml up
+
+networks:
+  safetrace-gpu:
+    driver: bridge
+
+volumes:
+  hf-cache:          # shared HuggingFace model cache
+  results-gpu:
+
+x-gpu-common: &gpu-common
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            capabilities: [gpu]
+            count: all   # give every GPU to vLLM; override with NVIDIA_VISIBLE_DEVICES
+
+services:
+
+  # ── vLLM inference server ─────────────────────────────────────────────────
+  vllm:
+    image: vllm/vllm-openai:latest
+    <<: *gpu-common
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
+      - VLLM_WORKER_MULTIPROC_METHOD=spawn
+    command: >
+      --model ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      --port 8000
+      --tensor-parallel-size ${TENSOR_PARALLEL:-1}
+      --gpu-memory-utilization ${GPU_MEM_UTIL:-0.90}
+      --max-model-len ${MAX_MODEL_LEN:-16384}
+      --enable-prefix-caching
+      --served-model-name ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+    ports:
+      - "8000:8000"
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    networks:
+      - safetrace-gpu
+    shm_size: "2gb"
+    healthcheck:
+      test:
+        - "CMD"
+        - "python3"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+      interval: 20s
+      timeout: 10s
+      retries: 15
+      start_period: 120s   # model load can take 2+ min
+    restart: unless-stopped
+
+  # ── SafeTrace evaluation runner ───────────────────────────────────────────
+  safetrace-eval:
+    build:
+      context: .
+      dockerfile: docker/agent-service/Dockerfile
+    environment:
+      - VLLM_BASE_URL=http://vllm:8000/v1
+      - MODEL=${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - SAFETRACE_EMBED_MODEL=${SAFETRACE_EMBED_MODEL:-microsoft/codebert-base}
+      - RESULTS_DIR=/results
+      - PYTHONPATH=/app
+    volumes:
+      - ./benchmark:/app/benchmark:ro
+      - ./safetrace:/app/safetrace:ro
+      - ./scripts:/app/scripts:ro
+      - ./models:/app/models
+      - results-gpu:/results
+      - hf-cache:/root/.cache/huggingface
+    networks:
+      - safetrace-gpu
+    depends_on:
+      vllm:
+        condition: service_healthy
+    command: >
+      python scripts/run_eval.py
+        --agent vllm
+        --model ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+        --vllm-url http://vllm:8000/v1
+        --policy all
+        --patch-mode unsafe
+        --output /results/gpu_results.csv
+
+  # ── Embedding monitor GPU training ───────────────────────────────────────
+  train-monitor:
+    build:
+      context: .
+      dockerfile: docker/agent-service/Dockerfile
+    <<: *gpu-common
+    environment:
+      - PYTHONPATH=/app
+      - SAFETRACE_EMBED_MODEL=${SAFETRACE_EMBED_MODEL:-microsoft/codebert-base}
+    volumes:
+      - ./benchmark:/app/benchmark:ro
+      - ./safetrace:/app/safetrace:ro
+      - ./scripts:/app/scripts:ro
+      - ./models:/app/models
+      - hf-cache:/root/.cache/huggingface
+    networks:
+      - safetrace-gpu
+    command: python scripts/train_monitor.py --embed
+    profiles:
+      - train   # only runs with: docker compose --profile train up train-monitor

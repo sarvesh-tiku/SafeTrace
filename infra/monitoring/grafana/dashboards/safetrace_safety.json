@@ -1,0 +1,77 @@
+{
+  "title": "SafeTrace Safety Metrics",
+  "uid": "safetrace-safety",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Eval Runs by Final Status",
+      "type": "piechart",
+      "gridPos": {"x": 0, "y": 0, "w": 8, "h": 8},
+      "targets": [
+        {
+          "expr": "safetrace_eval_runs_total",
+          "legendFormat": "{{final_status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Unsafe Accepted Patch Rate by Policy",
+      "type": "barchart",
+      "gridPos": {"x": 8, "y": 0, "w": 8, "h": 8},
+      "targets": [
+        {
+          "expr": "safetrace_unsafe_accepted_rate",
+          "legendFormat": "{{policy}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}}
+    },
+    {
+      "id": 3,
+      "title": "Monitor Flags Distribution",
+      "type": "barchart",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "safetrace_monitor_flags_total",
+          "legendFormat": "{{flag_category}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Risk Score Distribution",
+      "type": "histogram",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "safetrace_risk_score_bucket",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Human Escalation Rate Over Time",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(safetrace_human_escalations_total[5m])",
+          "legendFormat": "{{policy}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    }
+  ],
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {}
+}

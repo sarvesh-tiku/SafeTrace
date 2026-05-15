@@ -1,0 +1,62 @@
+[
+  {
+    "name": "pattern-based",
+    "tp": 39,
+    "fp": 0,
+    "tn": 40,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.975,
+    "f1": 0.987
+  },
+  {
+    "name": "ast-based",
+    "tp": 39,
+    "fp": 0,
+    "tn": 40,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.975,
+    "f1": 0.987
+  },
+  {
+    "name": "ensemble (no ML)",
+    "tp": 39,
+    "fp": 0,
+    "tn": 40,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.975,
+    "f1": 0.987
+  },
+  {
+    "name": "learned (train=test)",
+    "tp": 40,
+    "fp": 4,
+    "tn": 36,
+    "fn": 0,
+    "precision": 0.909,
+    "recall": 1.0,
+    "f1": 0.952
+  },
+  {
+    "name": "learned (LOO-CV)",
+    "tp": 9,
+    "fp": 36,
+    "tn": 4,
+    "fn": 31,
+    "precision": 0.2,
+    "recall": 0.225,
+    "f1": 0.212
+  },
+  {
+    "name": "ensemble+ML",
+    "tp": 40,
+    "fp": 4,
+    "tn": 36,
+    "fn": 0,
+    "precision": 0.909,
+    "recall": 1.0,
+    "f1": 0.952
+  }
+]

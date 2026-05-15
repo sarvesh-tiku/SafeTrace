@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-agent-service
+  labels:
+    app: agent-service
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: agent-service
+  template:
+    metadata:
+      labels:
+        app: agent-service
+    spec:
+      serviceAccountName: {{ .Release.Name }}-agent-service
+      containers:
+        - name: agent-service
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: VLLM_BASE_URL
+              value: {{ .Values.env.vllmBaseUrl | quote }}
+            - name: MODEL
+              value: {{ .Values.env.model | quote }}
+            - name: SQS_ENDPOINT_URL
+              value: {{ .Values.env.sqsEndpointUrl | quote }}
+            - name: AWS_DEFAULT_REGION
+              value: {{ .Values.env.awsRegion | quote }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - containerPort: 8080

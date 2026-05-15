@@ -1,0 +1,33 @@
+replicaCount: 2
+
+image:
+  repository: your-ecr-repo/agent-service
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env:
+  vllmBaseUrl: "http://vllm-service:8000/v1"
+  model: "qwen2.5-coder-32b"
+  sqsEndpointUrl: ""
+  awsRegion: "us-east-1"
+
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: ""
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "2000m"
+    memory: "2Gi"
+
+hpa:
+  minReplicas: 2
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+
+service:
+  type: ClusterIP
+  port: 8080

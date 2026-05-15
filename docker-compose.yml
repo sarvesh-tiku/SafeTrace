@@ -1,0 +1,170 @@
+version: "3.9"
+
+networks:
+  safetrace-internal:
+    driver: bridge
+  safetrace-external:
+    driver: bridge
+
+volumes:
+  results-data:
+  prometheus-data:
+  grafana-data:
+
+services:
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    ports:
+      - "9324:9324"
+      - "9325:9325"
+    networks:
+      - safetrace-internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9325"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  agent-service:
+    build:
+      context: .
+      dockerfile: docker/agent-service/Dockerfile
+    environment:
+      - VLLM_BASE_URL=${VLLM_BASE_URL:-http://localhost:8000/v1}
+      - MODEL=${MODEL:-qwen2.5-coder-32b}
+      - SQS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+      - RESULTS_DIR=/results
+    volumes:
+      - results-data:/results
+      - ./benchmark:/app/benchmark:ro
+    networks:
+      - safetrace-internal
+      - safetrace-external
+    depends_on:
+      elasticmq:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from safetrace import StubAgent; print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  task-runner:
+    build:
+      context: .
+      dockerfile: docker/task-runner/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+    volumes:
+      - ./benchmark:/app/benchmark:ro
+      - results-data:/results
+    networks:
+      - safetrace-internal
+    # No external network access
+    depends_on:
+      - elasticmq
+    restart: "no"
+
+  monitor-service:
+    build:
+      context: .
+      dockerfile: docker/monitor-service/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+      - PROMETHEUS_PORT=8001
+    networks:
+      - safetrace-internal
+    ports:
+      - "8001:8001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "from safetrace.monitor import run_monitor; print('ok')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  controller-service:
+    build:
+      context: .
+      dockerfile: docker/controller-service/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+      - SQS_ENDPOINT_URL=http://elasticmq:9324
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=local
+      - AWS_SECRET_ACCESS_KEY=local
+    networks:
+      - safetrace-internal
+    depends_on:
+      - elasticmq
+      - monitor-service
+    restart: unless-stopped
+
+  tracer-service:
+    build:
+      context: .
+      dockerfile: docker/tracer-service/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+      - RESULTS_DIR=/results
+    volumes:
+      - results-data:/results
+    networks:
+      - safetrace-internal
+    restart: unless-stopped
+
+  results-service:
+    build:
+      context: .
+      dockerfile: docker/results-service/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+      - RESULTS_DIR=/results
+    volumes:
+      - results-data:/results
+    networks:
+      - safetrace-internal
+      - safetrace-external
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; assert os.path.exists('/results')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    ports:
+      - "9090:9090"
+    networks:
+      - safetrace-internal
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - safetrace-internal
+    depends_on:
+      - prometheus
+    restart: unless-stopped

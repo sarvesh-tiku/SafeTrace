@@ -1,0 +1,14 @@
+image:
+  repository: your-ecr-repo/task-runner
+  tag: latest
+  pullPolicy: IfNotPresent
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "512Mi"
+
+activeDeadlineSeconds: 120

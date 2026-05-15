@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "safetrace"
+version = "0.1.0"
+description = "Auditable safety traces for autonomous code repair agents"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.0",
+    "rich>=13.0",
+    "typer>=0.9",
+    "pandas>=2.0",
+    "pytest>=7.0",
+    "gitpython>=3.1",
+    "openai>=1.0",
+    "anthropic>=0.20",
+    "boto3>=1.26",
+    "httpx>=0.24",
+    "python-dotenv>=1.0",
+    "prometheus-client>=0.17",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff", "mypy"]
+
+# GPU / local inference stack
+# Install with: pip install 'safetrace[gpu]'
+# Or for CPU-only local inference: pip install 'safetrace[embed]'
+embed = [
+    "transformers>=4.40",
+    "numpy>=1.24",
+    "torch>=2.1",
+]
+gpu = [
+    "transformers>=4.40",
+    "numpy>=1.24",
+    "torch>=2.1",
+    "accelerate>=0.27",        # device_map="auto" multi-GPU
+    "bitsandbytes>=0.43",      # 4-bit / 8-bit quantization
+    "vllm>=0.6.0",             # high-throughput GPU inference server
+    "scikit-learn>=1.3",
+]
+ml = [
+    "scikit-learn>=1.3",
+    "numpy>=1.24",
+]
+
+[project.scripts]
+safetrace-eval = "scripts.run_eval:main"
+safetrace-agent = "scripts.run_agent:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["safetrace"]

@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  EKS_CLUSTER: safetrace
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - agent-service
+          - task-runner
+          - monitor-service
+          - controller-service
+          - tracer-service
+          - results-service
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build and push ${{ matrix.service }}
+        run: |
+          IMAGE_TAG="${{ env.ECR_REGISTRY }}/${{ matrix.service }}:${{ github.sha }}"
+          docker build -f docker/${{ matrix.service }}/Dockerfile -t "$IMAGE_TAG" .
+          docker push "$IMAGE_TAG"
+
+  deploy:
+    needs: build-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ env.AWS_REGION }}
+      - name: Deploy all services via Helm
+        run: |
+          for svc in agent-service task-runner monitor-service controller-service tracer-service results-service; do
+            helm upgrade --install "$svc" "infra/helm/$svc" \
+              --namespace safetrace \
+              --create-namespace \
+              --set image.repository="${{ env.ECR_REGISTRY }}/$svc" \
+              --set image.tag="${{ github.sha }}" \
+              --wait
+          done
+      - name: Smoke test
+        run: |
+          kubectl -n safetrace wait --for=condition=available deployment/agent-service --timeout=120s
+          echo "Deploy smoke test passed."

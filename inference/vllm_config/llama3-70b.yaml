@@ -1,0 +1,10 @@
+model: meta-llama/Llama-3.1-70B-Instruct
+tensor_parallel_size: 1
+max_model_len: 16384
+gpu_memory_utilization: 0.90
+enable_prefix_caching: true
+dtype: float16
+quantization: awq
+served_model_name: llama3-70b
+port: 8001
+host: 0.0.0.0
