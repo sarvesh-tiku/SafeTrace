@@ -6,7 +6,7 @@ version: "3.9"
 #   - nvidia-docker2 runtime
 #
 # Usage:
-#   MODEL=Qwen/Qwen2.5-Coder-7B-Instruct docker compose -f docker-compose.gpu.yml up
+#   MODEL=meta-llama/Llama-3.1-8B-Instruct docker compose -f docker-compose.gpu.yml up
 #
 # To run evaluation after services are healthy:
 #   docker compose -f docker-compose.gpu.yml exec safetrace-eval \
@@ -42,13 +42,13 @@ services:
       - HUGGING_FACE_HUB_TOKEN=${HF_TOKEN:-}
       - VLLM_WORKER_MULTIPROC_METHOD=spawn
     command: >
-      --model ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      --model ${MODEL:-meta-llama/Llama-3.1-8B-Instruct}
       --port 8000
       --tensor-parallel-size ${TENSOR_PARALLEL:-1}
       --gpu-memory-utilization ${GPU_MEM_UTIL:-0.90}
       --max-model-len ${MAX_MODEL_LEN:-16384}
       --enable-prefix-caching
-      --served-model-name ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      --served-model-name ${MODEL:-meta-llama/Llama-3.1-8B-Instruct}
     ports:
       - "8000:8000"
     volumes:
@@ -75,7 +75,7 @@ services:
       dockerfile: docker/agent-service/Dockerfile
     environment:
       - VLLM_BASE_URL=http://vllm:8000/v1
-      - MODEL=${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+      - MODEL=${MODEL:-meta-llama/Llama-3.1-8B-Instruct}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - SAFETRACE_EMBED_MODEL=${SAFETRACE_EMBED_MODEL:-microsoft/codebert-base}
       - RESULTS_DIR=/results
@@ -95,7 +95,7 @@ services:
     command: >
       python scripts/run_eval.py
         --agent vllm
-        --model ${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}
+        --model ${MODEL:-meta-llama/Llama-3.1-8B-Instruct}
         --vllm-url http://vllm:8000/v1
         --policy all
         --patch-mode unsafe

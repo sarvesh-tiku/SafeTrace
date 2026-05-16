@@ -9,7 +9,7 @@ Works on CPU; automatically accelerates on CUDA/MPS when available.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -104,8 +104,8 @@ class EmbeddingMonitor:
 
     def __init__(
         self,
-        model_name: str | None = None,
-        device: str | None = None,
+        model_name: Optional[str] = None,
+        device: Optional[str] = None,
         threshold: float = 0.80,
         embeddings_path: str = _DEFAULT_EMBEDDINGS_PATH,
     ) -> None:
@@ -122,7 +122,7 @@ class EmbeddingMonitor:
         self._tokenizer: Any = None
         self._model: Any = None
         # anchor_matrix: shape (n_anchors, hidden_dim) — unit-normalized rows
-        self._anchor_matrix: np.ndarray | None = None
+        self._anchor_matrix: Optional[np.ndarray] = None
         self._trained: bool = False
 
     # ── device detection ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import time
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .controller import ActionResult, Controller
 from .monitor import run_monitor
@@ -166,7 +166,7 @@ class TestFeedbackPolicy:
         context = agent.retrieve_context(task)
         tracer.set_retrieved_files(list(originals.keys()))
 
-        feedback: str | None = None
+        feedback: Optional[str] = None
         last_test = None
 
         for attempt in range(self.max_retries + 1):
@@ -239,7 +239,7 @@ class SafeTracePolicy:
 
         ctrl = Controller(state)
         final_status = "unclear"
-        current_patch: PatchResult | None = None
+        current_patch: Optional[PatchResult] = None
 
         while True:
             action = ctrl.step()

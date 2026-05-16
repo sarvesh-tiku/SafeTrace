@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import re
+from typing import Optional
 
 
 def parse_diff(diff: str) -> dict:
     result: dict = {"files": {}, "total_added": 0, "total_removed": 0}
-    current_file: str | None = None
+    current_file: Optional[str] = None
 
     for line in diff.splitlines():
         if line.startswith("+++ "):

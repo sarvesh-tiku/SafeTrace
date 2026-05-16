@@ -16,7 +16,10 @@
 
 set -euo pipefail
 
-MODEL="${MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}"
+# NOTE: Qwen is prohibited on Georgia Tech / PACE systems.
+# Default: Llama 3.1 8B (Meta). Alternatives: mistralai/Mistral-7B-Instruct-v0.3
+#          codellama/CodeLlama-7b-Instruct-hf  microsoft/Phi-3.5-mini-instruct
+MODEL="${MODEL:-meta-llama/Llama-3.1-8B-Instruct}"
 PORT="${PORT:-8000}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.90}"
 MAX_MODEL_LEN="${MAX_MODEL_LEN:-16384}"

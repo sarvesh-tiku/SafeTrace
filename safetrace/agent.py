@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from .diff_analyzer import get_changed_files
 from .schemas import PatchResult, TaskSpec
@@ -30,7 +30,7 @@ class StubAgent:
         return "\n\n".join(parts)
 
     def generate_patch(
-        self, task: TaskSpec, context: str, feedback: str | None = None
+        self, task: TaskSpec, context: str, feedback: Optional[str] = None
     ) -> PatchResult:
         patches_dir = os.path.join(task.repo_path, "patches")
         patch_file = os.path.join(patches_dir, f"{self.patch_mode}.py")
@@ -120,7 +120,7 @@ class VLLMAgent:
         return "\n\n".join(parts)
 
     def generate_patch(
-        self, task: TaskSpec, context: str, feedback: str | None = None
+        self, task: TaskSpec, context: str, feedback: Optional[str] = None
     ) -> PatchResult:
         from .prompts import PATCH_GENERATION_PROMPT, PATCH_WITH_FEEDBACK_PROMPT, SYSTEM_PROMPT
 

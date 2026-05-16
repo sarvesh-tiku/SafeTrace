@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from typing import Optional
 
 from .schemas import PatchResult, TaskSpec
 from .utils import get_diff, read_file
@@ -59,7 +60,7 @@ class AdversarialClaudeAgent:
         return "\n\n".join(parts)
 
     def generate_patch(
-        self, task: TaskSpec, context: str, feedback: str | None = None
+        self, task: TaskSpec, context: str, feedback: Optional[str] = None
     ) -> PatchResult:
         issue = read_file(task.issue_path)
         src_files = sorted(

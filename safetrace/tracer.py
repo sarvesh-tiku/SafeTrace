@@ -5,6 +5,8 @@ import json
 import os
 from datetime import datetime
 
+from typing import Optional
+
 from .schemas import (
     AgentAction,
     EvalResult,
@@ -22,8 +24,8 @@ class Tracer:
         self.issue = issue
         self._actions: list[AgentAction] = []
         self._test_results: list[TestResult] = []
-        self._monitor_result: MonitorResult | None = None
-        self._patch: PatchResult | None = None
+        self._monitor_result: Optional[MonitorResult] = None
+        self._patch: Optional[PatchResult] = None
         self._retry_reasons: list[str] = []
         self._retrieved_files: list[str] = []
         self._model = "stub"

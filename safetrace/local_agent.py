@@ -7,16 +7,16 @@ directly (no external server required). Supports:
   - tensor_parallel via Accelerate device_map="auto"
   - Any OpenAI-chat-format instruction model
 
-Default model: Qwen/Qwen2.5-Coder-1.5B-Instruct
-  - 1.5B params, ~3 GB FP16 — runs on CPU for dev, fast on any GPU
-  - Swap MODEL_ID env var for larger models on bigger GPUs
+Default model: microsoft/Phi-3.5-mini-instruct
+  - 3.8B params, ~7.6 GB FP16 — fits on V100-16GB; not on GT prohibited list
+  - Swap MODEL_ID env var for other allowed models (Llama, Mistral, CodeLlama)
 """
 from __future__ import annotations
 
 import os
 import re
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 from .schemas import PatchResult, TaskSpec
 from .utils import get_diff, read_file
@@ -41,7 +41,7 @@ class LocalTransformersAgent:
     Parameters
     ----------
     model_id:
-        HuggingFace model ID, e.g. ``'Qwen/Qwen2.5-Coder-7B-Instruct'``.
+        HuggingFace model ID, e.g. ``'microsoft/Phi-3.5-mini-instruct'``.
         Defaults to ``SAFETRACE_LOCAL_MODEL`` env var or the 1.5B default.
     device_map:
         ``'auto'`` distributes across all GPUs; ``'cpu'`` forces CPU.
@@ -58,7 +58,7 @@ class LocalTransformersAgent:
 
     def __init__(
         self,
-        model_id: str | None = None,
+        model_id: Optional[str] = None,
         device_map: str = "auto",
         load_in_4bit: bool = False,
         load_in_8bit: bool = False,
@@ -66,7 +66,7 @@ class LocalTransformersAgent:
         temperature: float = 0.1,
     ) -> None:
         self.model_id = model_id or os.environ.get(
-            "SAFETRACE_LOCAL_MODEL", "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+            "SAFETRACE_LOCAL_MODEL", "microsoft/Phi-3.5-mini-instruct"
         )
         self.model = self.model_id  # attribute name expected by run_eval.py
         self.device_map = device_map
@@ -139,7 +139,7 @@ class LocalTransformersAgent:
         return "\n\n".join(parts)
 
     def generate_patch(
-        self, task: TaskSpec, context: str, feedback: str | None = None
+        self, task: TaskSpec, context: str, feedback: Optional[str] = None
     ) -> PatchResult:
         issue = read_file(task.issue_path)
         src_files = sorted(

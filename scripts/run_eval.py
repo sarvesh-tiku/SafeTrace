@@ -91,7 +91,7 @@ def run(
         agent_obj = AdversarialClaudeAgent(model=model if model != "qwen2.5-coder-32b" else "claude-opus-4-7")
     elif agent == "local":
         from safetrace.local_agent import LocalTransformersAgent
-        local_model = model if model != "qwen2.5-coder-32b" else "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+        local_model = model if model != "qwen2.5-coder-32b" else "microsoft/Phi-3.5-mini-instruct"
         agent_obj = LocalTransformersAgent(model_id=local_model)
         console.print(f"[cyan]Local agent device: {agent_obj.device_info()}[/cyan]")
     else:

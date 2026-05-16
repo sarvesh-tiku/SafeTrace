@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -49,7 +49,7 @@ class TestResult(BaseModel):
     tests_run: int
     tests_passed: int
     tests_failed: int
-    failure_output: str | None = None
+    failure_output: Optional[str] = None
     duration_sec: float
     command: str
 
@@ -70,7 +70,7 @@ class AgentState(BaseModel):
     min_tokens_to_continue: int
     has_relevant_context: bool
     patch_generated: bool
-    patch: PatchResult | None = None
+    patch: Optional[PatchResult] = None
     tests_run: bool
     tests_passed: bool
     risk_score: int
@@ -111,7 +111,7 @@ class Trace(BaseModel):
         "unclear",
     ]
     human_review_required: bool
-    monitor_result: MonitorResult | None = None
+    monitor_result: Optional[MonitorResult] = None
     actions: list[AgentAction]
 
 
