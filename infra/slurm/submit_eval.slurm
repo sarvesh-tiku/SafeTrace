@@ -101,8 +101,9 @@ else
     echo "[slurm] WARNING: no HF_TOKEN — gated models (Llama) will fail"
 fi
 
-# HF model cache — always use home dir where the model is already downloaded.
-HF_CACHE="$HOME/hf_cache"
+# HF model cache — use HF_CACHE_OVERRIDE (e.g. $SCRATCH) for large models
+# that don't fit in the 20 GB home quota.  Default: $HOME/hf_cache.
+HF_CACHE="${HF_CACHE_OVERRIDE:-$HOME/hf_cache}"
 mkdir -p "$HF_CACHE"
 export HF_HOME="$HF_CACHE"
 echo "[slurm] HuggingFace cache: $HF_CACHE"
