@@ -99,6 +99,26 @@ echo "[slurm] HuggingFace cache: $HF_CACHE"
 # Disable tokenizers parallelism warning inside SLURM
 export TOKENIZERS_PARALLELISM=false
 
+# ── 2b. Ensure torch has CUDA support ────────────────────────────────────────
+if ! python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
+    echo "[slurm] torch has no CUDA — reinstalling cu121 wheel..."
+    pip install torch --index-url https://download.pytorch.org/whl/cu121 -q
+fi
+echo "[slurm] torch CUDA: $(python -c 'import torch; print(torch.cuda.is_available(), torch.version.cuda)')"
+
+# ── 2c. Pin transformers to <4.46 ─────────────────────────────────────────────
+# Phi-3.5's remote modeling_phi3.py (trust_remote_code) uses DynamicCache APIs
+# removed in 4.46+. We use the native Phi3ForCausalLM instead (no trust_remote_code),
+# but pin here so a future `pip install` doesn't silently break things.
+python -c "
+import transformers, sys
+v = tuple(int(x) for x in transformers.__version__.split('.')[:2])
+if v >= (4, 46):
+    print(f'[slurm] transformers {transformers.__version__} >= 4.46 detected — pinning to 4.44.2')
+    sys.exit(1)
+" || pip install "transformers==4.44.2" -q
+echo "[slurm] transformers: $(python -c 'import transformers; print(transformers.__version__)')"
+
 # ── 7. Train embedding monitor (skip if already done) ────────────────────────
 if [[ ! -f "models/embeddings.npz" ]]; then
     echo "[slurm] Training CodeBERT embedding monitor on GPU..."

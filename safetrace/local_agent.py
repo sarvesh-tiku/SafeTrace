@@ -96,10 +96,10 @@ class LocalTransformersAgent:
             "model": self.model_id,
             "task": "text-generation",
             "device_map": self.device_map,
-            "trust_remote_code": True,
-            # Phi-3.5's sliding window attention requires cache methods
-            # (get_usable_length, get_max_length) removed in transformers 4.46+.
-            # eager bypasses that entire code path.
+            # Do NOT set trust_remote_code=True. Phi-3.5's remote modeling_phi3.py
+            # accesses DynamicCache.seen_tokens / get_max_length / get_usable_length
+            # which were all removed in transformers 4.46+. The native Phi3ForCausalLM
+            # built into transformers (since 4.40) is always version-compatible.
             "model_kwargs": {"attn_implementation": "eager"},
         }
 
