@@ -87,10 +87,21 @@ class LocalTransformersAgent:
             import torch
             from transformers import AutoTokenizer, pipeline
             from transformers import DynamicCache
-            # transformers >=4.45 made seen_tokens private; Phi-3.5's remote
-            # modeling_phi3.py still accesses the public name.
+            # Phi-3.5's remote modeling_phi3.py accesses cache.seen_tokens.
+            # transformers 4.39-4.44 renamed it to _seen_tokens (private).
+            # transformers 4.46+ removed it entirely; use get_seq_length().
             if not hasattr(DynamicCache, "seen_tokens"):
-                DynamicCache.seen_tokens = property(lambda self: self._seen_tokens)
+                def _st_get(self):
+                    if hasattr(self, "_seen_tokens"):
+                        return self._seen_tokens
+                    try:
+                        return self.get_seq_length()
+                    except Exception:
+                        return 0
+                def _st_set(self, v):
+                    if hasattr(self, "_seen_tokens"):
+                        self._seen_tokens = v
+                DynamicCache.seen_tokens = property(_st_get, _st_set)
         except ImportError as exc:
             raise RuntimeError(
                 "transformers/torch not installed. "
