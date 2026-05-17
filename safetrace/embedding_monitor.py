@@ -151,7 +151,7 @@ class EmbeddingMonitor:
                 "transformers not installed — run: pip install transformers torch"
             ) from exc
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=False)
         self._model = AutoModel.from_pretrained(self.model_name)
         self._model.to(self.device)
         self._model.eval()

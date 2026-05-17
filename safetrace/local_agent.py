@@ -97,7 +97,9 @@ class LocalTransformersAgent:
         # channel closed" errors under SLURM cgroup resource limits.
         os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-        tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+        # use_fast=False avoids the Rust tokenizer's compiled-cache disk write,
+        # which fails under SLURM when home quota is tight.
+        tokenizer = AutoTokenizer.from_pretrained(self.model_id, use_fast=False)
 
         model_kwargs: dict[str, Any] = {
             "device_map": self.device_map,
