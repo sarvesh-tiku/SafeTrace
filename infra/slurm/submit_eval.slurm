@@ -105,7 +105,6 @@ fi
 HF_CACHE="$HOME/hf_cache"
 mkdir -p "$HF_CACHE"
 export HF_HOME="$HF_CACHE"
-export TRANSFORMERS_CACHE="$HF_CACHE"
 echo "[slurm] HuggingFace cache: $HF_CACHE"
 
 # Disable tokenizers parallelism warning inside SLURM
