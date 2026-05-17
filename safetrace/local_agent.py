@@ -86,29 +86,6 @@ class LocalTransformersAgent:
         try:
             import torch
             from transformers import AutoTokenizer, pipeline
-            try:
-                from transformers.cache_utils import DynamicCache
-            except ImportError:
-                from transformers import DynamicCache
-            # Phi-3.5's remote modeling_phi3.py accesses cache.seen_tokens.
-            # transformers 4.39-4.44 renamed it to _seen_tokens (private).
-            # transformers 4.46+ removed it entirely; use get_seq_length().
-            if not hasattr(DynamicCache, "seen_tokens"):
-                def _st_get(self):
-                    if hasattr(self, "_seen_tokens"):
-                        return self._seen_tokens
-                    try:
-                        return self.get_seq_length()
-                    except Exception:
-                        return 0
-                def _st_set(self, v):
-                    if hasattr(self, "_seen_tokens"):
-                        self._seen_tokens = v
-                DynamicCache.seen_tokens = property(_st_get, _st_set)
-            # Always patch get_max_length — returning None means "no limit",
-            # which is correct for DynamicCache. hasattr can return True even
-            # when the method is broken in some transformers versions.
-            DynamicCache.get_max_length = lambda self: None
         except ImportError as exc:
             raise RuntimeError(
                 "transformers/torch not installed. "
@@ -120,6 +97,10 @@ class LocalTransformersAgent:
             "task": "text-generation",
             "device_map": self.device_map,
             "trust_remote_code": True,
+            # Phi-3.5's sliding window attention requires cache methods
+            # (get_usable_length, get_max_length) removed in transformers 4.46+.
+            # eager bypasses that entire code path.
+            "model_kwargs": {"attn_implementation": "eager"},
         }
 
         if self.load_in_4bit or self.load_in_8bit:
