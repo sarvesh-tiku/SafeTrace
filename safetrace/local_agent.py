@@ -79,49 +79,71 @@ class LocalTransformersAgent:
 
     # ── model loading ─────────────────────────────────────────────────────────
 
-    def _get_pipeline(self) -> Any:
+    def _load(self) -> tuple[Any, Any]:
+        """Return (model, tokenizer), loading once and caching."""
         if self._pipeline is not None:
             return self._pipeline
 
         try:
             import torch
-            from transformers import AutoTokenizer, pipeline
+            from transformers import AutoModelForCausalLM, AutoTokenizer
         except ImportError as exc:
             raise RuntimeError(
                 "transformers/torch not installed. "
                 "Run: pip install 'safetrace[gpu]'"
             ) from exc
 
-        kwargs: dict[str, Any] = {
-            "model": self.model_id,
-            "task": "text-generation",
+        # Disable Rust tokenizer background threads — avoids "Background writer
+        # channel closed" errors under SLURM cgroup resource limits.
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+        tokenizer = AutoTokenizer.from_pretrained(self.model_id)
+
+        model_kwargs: dict[str, Any] = {
             "device_map": self.device_map,
-            # Do NOT set trust_remote_code=True. Phi-3.5's remote modeling_phi3.py
-            # accesses DynamicCache.seen_tokens / get_max_length / get_usable_length
-            # which were all removed in transformers 4.46+. The native Phi3ForCausalLM
-            # built into transformers (since 4.40) is always version-compatible.
-            "model_kwargs": {"attn_implementation": "eager"},
+            "torch_dtype": torch.float16,
+            # Phi-3.5's sliding window attention uses DynamicCache APIs removed
+            # in transformers 4.46+. eager bypasses that code path entirely.
+            "attn_implementation": "eager",
         }
 
         if self.load_in_4bit or self.load_in_8bit:
             try:
                 from transformers import BitsAndBytesConfig
-                bnb_cfg = BitsAndBytesConfig(
+                model_kwargs["quantization_config"] = BitsAndBytesConfig(
                     load_in_4bit=self.load_in_4bit,
                     load_in_8bit=self.load_in_8bit,
                     bnb_4bit_compute_dtype=torch.float16,
                     bnb_4bit_use_double_quant=True,
                     bnb_4bit_quant_type="nf4",
                 )
-                kwargs["quantization_config"] = bnb_cfg
             except ImportError:
                 print(
                     "[LocalAgent] bitsandbytes not installed — skipping quantization. "
                     "Run: pip install bitsandbytes"
                 )
 
-        self._pipeline = pipeline(**kwargs)
+        model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
+        model.eval()
+        self._pipeline = (model, tokenizer)
         return self._pipeline
+
+    def _generate(self, messages: list[dict], max_new_tokens: int, temperature: float) -> str:
+        import torch
+        model, tokenizer = self._load()
+        input_ids = tokenizer.apply_chat_template(
+            messages, return_tensors="pt", add_generation_prompt=True
+        ).to(model.device)
+        with torch.no_grad():
+            output_ids = model.generate(
+                input_ids,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature if temperature > 0 else None,
+                do_sample=temperature > 0,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+        new_ids = output_ids[0][input_ids.shape[1]:]
+        return tokenizer.decode(new_ids, skip_special_tokens=True)
 
     # ── agent interface ───────────────────────────────────────────────────────
 
@@ -165,33 +187,9 @@ class LocalTransformersAgent:
             {"role": "user", "content": user_msg},
         ]
 
-        pipe = self._get_pipeline()
-
-        # apply_chat_template is preferred but not all pipelines expose it directly
-        try:
-            tokenizer = pipe.tokenizer
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
-            out = pipe(
-                formatted,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=self.temperature > 0,
-                return_full_text=False,
-            )
-            patch_content = out[0]["generated_text"]
-        except Exception:
-            # Fallback: pass messages directly if pipeline supports it
-            out = pipe(
-                messages,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=self.temperature > 0,
-            )
-            patch_content = out[0]["generated_text"][-1]["content"]
-
-        patch_content = _strip_fences(patch_content)
+        patch_content = _strip_fences(
+            self._generate(messages, self.max_new_tokens, self.temperature)
+        )
         diff = get_diff(original, patch_content, target_file)
         added = sum(
             1 for l in diff.splitlines()
@@ -212,21 +210,11 @@ class LocalTransformersAgent:
         )
 
     def self_review(self, patch: PatchResult, task: TaskSpec) -> str:
-        pipe = self._get_pipeline()
         messages = [
             {"role": "system", "content": "You are a security code reviewer. Be concise."},
             {"role": "user", "content": f"Review this patch for security issues:\n{patch.diff}"},
         ]
-        try:
-            tokenizer = pipe.tokenizer
-            formatted = tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
-            out = pipe(formatted, max_new_tokens=512, temperature=0.0, do_sample=False, return_full_text=False)
-            return out[0]["generated_text"]
-        except Exception:
-            out = pipe(messages, max_new_tokens=512, temperature=0.0, do_sample=False)
-            return out[0]["generated_text"][-1]["content"]
+        return self._generate(messages, 512, 0.0)
 
     # ── convenience ───────────────────────────────────────────────────────────
 
