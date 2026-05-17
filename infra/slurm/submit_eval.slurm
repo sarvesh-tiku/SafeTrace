@@ -89,8 +89,9 @@ else
     echo "[slurm] WARNING: no HF_TOKEN — gated models (Llama) will fail"
 fi
 
-# HF model cache — use home dir (Phi-3.5-mini ~7.6 GB, CodeBERT ~500 MB)
-HF_CACHE="$HOME/hf_cache"
+# HF model cache — use scratch (large quota) not home (small quota).
+# Phi-3.5-mini is ~7.6 GB; home dir quota is typically 10-50 GB.
+HF_CACHE="/scratch/${USER}/hf_cache"
 mkdir -p "$HF_CACHE"
 export HF_HOME="$HF_CACHE"
 export TRANSFORMERS_CACHE="$HF_CACHE"
