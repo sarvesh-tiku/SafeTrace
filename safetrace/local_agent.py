@@ -99,7 +99,9 @@ class LocalTransformersAgent:
 
         # use_fast=False avoids the Rust tokenizer's compiled-cache disk write,
         # which fails under SLURM when home quota is tight.
-        tokenizer = AutoTokenizer.from_pretrained(self.model_id, use_fast=False)
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, use_fast=False, local_files_only=True
+        )
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model_kwargs: dict[str, Any] = {
@@ -128,7 +130,9 @@ class LocalTransformersAgent:
                     "Run: pip install bitsandbytes"
                 )
 
-        model = AutoModelForCausalLM.from_pretrained(self.model_id, **model_kwargs)
+        model = AutoModelForCausalLM.from_pretrained(
+            self.model_id, local_files_only=True, **model_kwargs
+        )
         model.eval()
         self._pipeline = (model, tokenizer)
         return self._pipeline

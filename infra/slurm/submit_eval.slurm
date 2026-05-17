@@ -31,6 +31,18 @@ cd "$PROJECT_ROOT"
 # ── 1. Create output dirs before anything writes to them ─────────────────────
 mkdir -p logs results models
 
+# ── 1b. Redirect caches to scratch/tmp — protect home quota ──────────────────
+# $SCRATCH is PACE's per-job scratch space (no quota); /tmp is the fallback.
+SCRATCH_BASE="${SCRATCH:-${TMPDIR:-/tmp}}"
+JOB_CACHE="$SCRATCH_BASE/safetrace_${SLURM_JOB_ID}"
+mkdir -p "$JOB_CACHE"
+# PyTorch JIT / triton kernel cache (can be 1-3 GB on first GPU run)
+export TORCH_HOME="$JOB_CACHE/torch"
+export TRITON_CACHE_DIR="$JOB_CACHE/triton"
+# Disable pip's download cache so re-installs don't fill home quota
+export PIP_NO_CACHE_DIR=1
+echo "[slurm] Job scratch cache: $JOB_CACHE"
+
 # ── 2. Load modules ───────────────────────────────────────────────────────────
 module load cuda/12.3.0 2>/dev/null || module load cuda/12.1.0 2>/dev/null || \
   module load cuda 2>/dev/null || true
@@ -102,7 +114,7 @@ export TOKENIZERS_PARALLELISM=false
 # ── 2b. Ensure torch has CUDA support ────────────────────────────────────────
 if ! python -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
     echo "[slurm] torch has no CUDA — reinstalling cu121 wheel..."
-    pip install torch --index-url https://download.pytorch.org/whl/cu121 -q
+    pip install torch --index-url https://download.pytorch.org/whl/cu121 --no-cache-dir -q
 fi
 echo "[slurm] torch CUDA: $(python -c 'import torch; print(torch.cuda.is_available(), torch.version.cuda)')"
 
@@ -116,7 +128,7 @@ v = tuple(int(x) for x in transformers.__version__.split('.')[:2])
 if v >= (4, 46):
     print(f'[slurm] transformers {transformers.__version__} >= 4.46 detected — pinning to 4.44.2')
     sys.exit(1)
-" || pip install "transformers==4.44.2" -q
+" || pip install "transformers==4.44.2" --no-cache-dir -q
 echo "[slurm] transformers: $(python -c 'import transformers; print(transformers.__version__)')"
 
 # ── 7. Train embedding monitor (skip if already done) ────────────────────────

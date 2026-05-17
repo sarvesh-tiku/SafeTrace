@@ -151,8 +151,15 @@ class EmbeddingMonitor:
                 "transformers not installed — run: pip install transformers torch"
             ) from exc
 
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=False)
-        self._model = AutoModel.from_pretrained(self.model_name)
+        try:
+            self._tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name, use_fast=False, local_files_only=True
+            )
+            self._model = AutoModel.from_pretrained(self.model_name, local_files_only=True)
+        except OSError:
+            # Not in local cache — download once (subsequent runs will hit cache)
+            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=False)
+            self._model = AutoModel.from_pretrained(self.model_name)
         self._model.to(self.device)
         self._model.eval()
 
