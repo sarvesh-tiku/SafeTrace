@@ -106,6 +106,10 @@ for _candidate in \
 done
 export HF_HOME="$HF_CACHE"
 export TRANSFORMERS_CACHE="$HF_CACHE"
+# Load from cache only — prevents HF from writing lock/metadata files mid-job.
+export TRANSFORMERS_OFFLINE=1
+export HF_DATASETS_OFFLINE=1
+echo "[slurm] HuggingFace cache: $HF_CACHE (offline mode)"
 
 # Disable tokenizers parallelism warning inside SLURM
 export TOKENIZERS_PARALLELISM=false

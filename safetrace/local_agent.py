@@ -101,12 +101,15 @@ class LocalTransformersAgent:
         # which fails under SLURM when home quota is tight.
         tokenizer = AutoTokenizer.from_pretrained(self.model_id, use_fast=False)
 
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         model_kwargs: dict[str, Any] = {
-            "device_map": self.device_map,
             "torch_dtype": torch.float16,
             # Phi-3.5's sliding window attention uses DynamicCache APIs removed
             # in transformers 4.46+. eager bypasses that code path entirely.
             "attn_implementation": "eager",
+            # Explicit device avoids accelerate's device_map which writes an
+            # offload folder to disk and can trigger disk quota errors.
+            "device_map": device,
         }
 
         if self.load_in_4bit or self.load_in_8bit:
@@ -133,9 +136,10 @@ class LocalTransformersAgent:
     def _generate(self, messages: list[dict], max_new_tokens: int, temperature: float) -> str:
         import torch
         model, tokenizer = self._load()
+        device = next(model.parameters()).device
         input_ids = tokenizer.apply_chat_template(
             messages, return_tensors="pt", add_generation_prompt=True
-        ).to(model.device)
+        ).to(device)
         with torch.no_grad():
             output_ids = model.generate(
                 input_ids,
