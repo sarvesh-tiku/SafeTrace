@@ -89,13 +89,23 @@ else
     echo "[slurm] WARNING: no HF_TOKEN — gated models (Llama) will fail"
 fi
 
-# HF model cache — use scratch (large quota) not home (small quota).
-# Phi-3.5-mini is ~7.6 GB; home dir quota is typically 10-50 GB.
-HF_CACHE="/scratch/${USER}/hf_cache"
-mkdir -p "$HF_CACHE"
+# HF model cache — try scratch paths in order, fall back to home.
+# Phi-3.5-mini is ~7.6 GB; keep it off home to avoid quota issues.
+HF_CACHE=""
+for _candidate in \
+    "${SCRATCH}/hf_cache" \
+    "/storage/scratch1/${USER}/hf_cache" \
+    "/storage/scratch2/${USER}/hf_cache" \
+    "/storage/scratch3/${USER}/hf_cache" \
+    "$HOME/hf_cache"; do
+    [[ -z "$_candidate" || "$_candidate" == "/hf_cache" ]] && continue
+    if mkdir -p "$_candidate" 2>/dev/null; then
+        HF_CACHE="$_candidate"
+        break
+    fi
+done
 export HF_HOME="$HF_CACHE"
 export TRANSFORMERS_CACHE="$HF_CACHE"
-echo "[slurm] HuggingFace cache: $HF_CACHE"
 
 # Disable tokenizers parallelism warning inside SLURM
 export TOKENIZERS_PARALLELISM=false
